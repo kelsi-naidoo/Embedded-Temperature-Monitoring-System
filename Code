@@ -1,0 +1,56 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+
+const char* ssid = "MyWiFiNetwork";
+const char* password = "MySecretPassword";
+const char* iotServer = "iot.example.com";
+const int iotPort = 80;
+
+#define DHTPIN 2
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+  lcd.begin(16, 2);
+  lcd.backlight();
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(temperature);
+  lcd.print(" C");
+  lcd.setCursor(0, 1);
+  lcd.print("Humidity: ");
+  lcd.print(humidity);
+  lcd.print(" %");
+  sendToIoTServer(temperature, humidity);
+  delay(5000);
+}
+
+void sendToIoTServer(float temperature, float humidity) {
+  HTTPClient http;
+  String url = "http://" + String(iotServer) + ":" + String(iotPort) + "/update?temp=" + String(temperature) + "&hum=" + String(humidity);
+  http.begin(url);
+  int httpCode = http.GET();
+  if (httpCode > 0) {
+    Serial.println("Data sent to IoT server successfully");
+  } else {
+    Serial.println("Error sending data to IoT server");
+  }
+  http.end();
+}
